@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""JZ2 Market Radar — live data fetch, threshold scoring, and report output."""
+"""Market Radar — live data fetch, threshold scoring, and report output."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from typing import Callable, Optional
 import requests
 
 TIMEOUT = 15
-UA = "Mozilla/5.0 (compatible; JZ2-Radar/1.0)"
+UA = "Mozilla/5.0 (compatible; Market-Radar/1.0)"
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": UA})
 
@@ -518,7 +518,7 @@ def build_report() -> tuple[str, bool]:
 
     ts = datetime.datetime.now().strftime("%m/%d %H:%M")
     ok = price is not None and price > 0
-    report = f"""🚨 JZ2 RADAR {ts}
+    report = f"""🚨 MARKET RADAR {ts}
 ━━━━━━━━━━━━━━━━━━
 
 📊 1. 宏观流动性 MACRO ({macro_pass}/{macro_total})

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# JZ3 Topic 205 — crontab entry point for JZ2 Market Radar
+# Cron entry point for Market Radar
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
