@@ -461,14 +461,22 @@ def build_report() -> tuple[str, bool]:
         Check(
             "200周均线 MA200W",
             f"${ma200w:,.0f}" if ma200w else "N/A",
-            f"Price ${price:,.0f}" if price else "—",
-            True if price and ma200w and price > ma200w else (False if price and ma200w else None),
+            (
+                f"Price ${price:,.0f} < MA 抄底"
+                if price and ma200w and price < ma200w
+                else (f"Price ${price:,.0f} > MA" if price and ma200w else "—")
+            ),
+            True if price and ma200w and price < ma200w else (False if price and ma200w else None),
         ),
         Check(
             "377日均线 MA377D",
             f"${ma377d:,.0f}" if ma377d else "N/A",
-            "Price>MA" if price and ma377d and price > ma377d else "Price<MA",
-            True if price and ma377d and price > ma377d else (False if price and ma377d else None),
+            (
+                "Price<MA 抄底"
+                if price and ma377d and price < ma377d
+                else ("Price>MA" if price and ma377d else "—")
+            ),
+            True if price and ma377d and price < ma377d else (False if price and ma377d else None),
         ),
     ]
     core_total = len(core_checks)
@@ -488,12 +496,15 @@ def build_report() -> tuple[str, bool]:
         _chk("AHR999 指标", ahr, "{:.2f}", "<0.45 定投", lambda v: v < 0.45),
         _chk("MVRV Ratio", onchain["mvrv_ratio"], "{:.2f}", "<1.0 低估", lambda v: v < 1.0),
         _chk("LTH 供应占比", onchain["lth_pct"], "{:.1f}", ">60%", lambda v: v > 60, unit="%"),
-        _chk(
+        Check(
             "矿工关机价",
-            shutdown,
-            "${:,.0f}",
-            f"vs ${price:,.0f}" if price else "—",
-            lambda v: price is not None and v < price,
+            f"${shutdown:,.0f}" if shutdown else "N/A",
+            f"现价 ${price:,.0f}" if price else "—",
+            (
+                True
+                if price and shutdown and price <= shutdown
+                else (False if price and shutdown else None)
+            ),
         ),
         _chk("未实现盈亏 NUPL", nupl, "{:.2f}", "<0 低估", lambda v: v < 0),
         _chk("矿工压力", miner_p, "{:.2f}", "<0.6 正常", lambda v: v < 0.6),
