@@ -23,8 +23,7 @@ All thresholds drive live ✅/❌ scoring and section conclusions (no hardcoded 
 pip install -r requirements.txt
 export FRED_API_KEY=your_32_char_fred_key   # required for macro + VIX
 # Optional — higher-quality on-chain data:
-export BITBO_API_KEY=...
-export GLASSNODE_API_KEY=...
+export BGEOMETRICS_API_KEY=...  # optional, https://portal.bgeometrics.com/login
 # Optional — Slack push (Topic 205):
 export SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
@@ -51,7 +50,7 @@ Logs append to `logs/radar-YYYYMMDD.log` when using the shell wrapper.
 | Macro rates | FRED | — |
 | NAAIM | naaim.org scrape | — |
 | S&P PE | multpl.com | — |
-| On-chain (MVRV, supply profit) | Bitbo / Glassnode | Price-based proxy |
+| On-chain (MVRV, supply profit, LTH) | BGeometrics (bitcoin-data.com) | Price-based proxy |
 | Miner shutdown | mempool.space hashrate | — |
 
 ## Cron example

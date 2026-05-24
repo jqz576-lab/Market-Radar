@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import datetime
+import time
 import logging
 import os
 import re
@@ -148,58 +149,49 @@ def get_fear_greed() -> Optional[float]:
         return None
 
 
-def _bitbo_latest(endpoint: str, api_key: str) -> Optional[float]:
-    if not api_key:
-        return None
-    try:
-        data = _get_json(
-            f"https://charts.bitbo.io/api/v1/{endpoint}/",
-            params={"latest": "true", "api_key": api_key},
-        )
-        return float(data["data"][-1][1])
-    except Exception as exc:
-        logger.warning("Bitbo %s failed: %s", endpoint, exc)
-        return None
+BGAPI_BASE = os.environ.get("BGEOMETRICS_API_URL", "https://api.bitcoin-data.com")
 
 
-def _glassnode_latest(metric: str, api_key: str) -> Optional[float]:
-    if not api_key:
-        return None
-    try:
-        data = _get_json(
-            f"https://api.glassnode.com/v1/metrics/{metric}",
-            params={"a": "BTC", "i": "24h", "api_key": api_key},
-        )
-        if not data:
+def _bgapi_auth_params() -> dict:
+    token = (
+        os.environ.get("BGEOMETRICS_API_KEY", "").strip()
+        or os.environ.get("BGAPI_TOKEN", "").strip()
+    )
+    return {"token": token} if token else {}
+
+
+def _bgeometrics_last(metric_path: str, value_key: str) -> Optional[float]:
+    """Fetch latest scalar from BGeometrics (bitcoin-data.com)."""
+    url = f"{BGAPI_BASE}/v1/{metric_path}/last"
+    params = _bgapi_auth_params()
+    for attempt in range(2):
+        try:
+            data = _get_json(url, params=params)
+            return float(data[value_key])
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 429 and attempt == 0:
+                logger.warning("BGeometrics rate limited, retrying %s", metric_path)
+                time.sleep(2)
+                continue
+            logger.warning("BGeometrics %s failed: %s", metric_path, exc)
             return None
-        return float(data[-1]["v"])
-    except Exception as exc:
-        logger.warning("Glassnode %s failed: %s", metric, exc)
-        return None
+        except Exception as exc:
+            logger.warning("BGeometrics %s failed: %s", metric_path, exc)
+            return None
+    return None
 
 
 def _onchain_metrics(price: float, daily_closes: list[float]) -> dict:
-    bitbo = os.environ.get("BITBO_API_KEY", "")
-    glass = os.environ.get("GLASSNODE_API_KEY", "")
+    supply_profit = _bgeometrics_last("utxos-in-profit-pct", "utxosInProfitPct")
+    mvrv_z = _bgeometrics_last("mvrv-zscore", "mvrvZscore")
+    mvrv_ratio = _bgeometrics_last("mvrv", "mvrv")
 
-    supply_profit = _bitbo_latest("supply-in-profit", bitbo)
-    if supply_profit is None:
-        rel = _glassnode_latest("supply/profit_relative", glass)
-        if rel is not None:
-            supply_profit = rel * 100
+    # sthLthRatio = STH/LTH → LTH% = 100 / (1 + ratio)
+    sth_lth = _bgeometrics_last("sth-lth-ratio", "sthLthRatio")
+    lth_pct = (100.0 / (1.0 + sth_lth)) if sth_lth is not None and sth_lth >= 0 else None
 
-    mvrv_z = _bitbo_latest("mvrv-z", bitbo) or _glassnode_latest(
-        "market/mvrv_z_score", glass
-    )
-    mvrv_ratio = _bitbo_latest("mvrv", bitbo) or _glassnode_latest("market/mvrv", glass)
-
-    lth_pct = None
-    lth_sum = _glassnode_latest("supply/lth_sum", glass)
-    supply = _glassnode_latest("supply/current", glass)
-    if lth_sum and supply and supply > 0:
-        lth_pct = (lth_sum / supply) * 100
-
-    if len(daily_closes) >= 200:
+    bg_ok = any(v is not None for v in (supply_profit, mvrv_z, mvrv_ratio, lth_pct))
+    if not bg_ok and len(daily_closes) >= 200:
         realized_proxy = sum(daily_closes[-200:]) / 200
         if mvrv_ratio is None and realized_proxy > 0:
             mvrv_ratio = price / realized_proxy
@@ -208,15 +200,14 @@ def _onchain_metrics(price: float, daily_closes: list[float]) -> dict:
             mvrv_z = (price - realized_proxy) / std
         if supply_profit is None:
             window = daily_closes[-365:]
-            supply_profit = (
-                sum(1 for c in window if price > c) / len(window) * 100
-            )
+            supply_profit = sum(1 for c in window if price > c) / len(window) * 100
 
     return {
         "supply_profit": supply_profit,
         "mvrv_z": mvrv_z,
         "mvrv_ratio": mvrv_ratio,
         "lth_pct": lth_pct,
+        "source": "bgeometrics" if bg_ok else "proxy",
     }
 
 
@@ -498,8 +489,8 @@ def build_report() -> tuple[str, bool]:
         btc_verdict = "无 (持币待涨)"
 
     onchain_note = ""
-    if not os.environ.get("BITBO_API_KEY") and not os.environ.get("GLASSNODE_API_KEY"):
-        onchain_note = "\nℹ️ 链上指标为价格代理；设置 BITBO_API_KEY 或 GLASSNODE_API_KEY 获取精确值"
+    if onchain.get("source") == "proxy":
+        onchain_note = "\nℹ️ 链上指标为价格代理（BGeometrics 不可用）；可设置 BGEOMETRICS_API_KEY 提高限额"
 
     ts = datetime.datetime.now().strftime("%m/%d %H:%M")
     ok = price is not None and price > 0
