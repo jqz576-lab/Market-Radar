@@ -472,11 +472,11 @@ def build_report() -> tuple[str, bool]:
             "377日均线 MA377D",
             f"${ma377d:,.0f}" if ma377d else "N/A",
             (
-                "Price<MA 抄底"
-                if price and ma377d and price < ma377d
-                else ("Price>MA" if price and ma377d else "—")
+                "Price>MA 多头"
+                if price and ma377d and price > ma377d
+                else ("Price<MA" if price and ma377d else "—")
             ),
-            True if price and ma377d and price < ma377d else (False if price and ma377d else None),
+            True if price and ma377d and price > ma377d else (False if price and ma377d else None),
         ),
     ]
     core_total = len(core_checks)
