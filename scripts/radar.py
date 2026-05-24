@@ -366,6 +366,30 @@ def _lines(checks: list[Check]) -> str:
     )
 
 
+def _lines_core(checks: list[Check]) -> str:
+    """BTC CORE: MA377D on a new line under MA200W."""
+    lines: list[str] = []
+    i = 0
+    while i < len(checks):
+        c = checks[i]
+        if c.label.startswith("200周"):
+            lines.append(f"├ {c.label}: {c.value_str} ({c.hint} {_status(c.passed)})")
+            if i + 1 < len(checks) and checks[i + 1].label.startswith("377"):
+                m = checks[i + 1]
+                lines.append(
+                    f"   {m.label}: {m.value_str} ({m.hint} {_status(m.passed)})"
+                )
+                i += 2
+                continue
+        elif c.label.startswith("377"):
+            i += 1
+            continue
+        else:
+            lines.append(f"├ {c.label}: {c.value_str} ({c.hint} {_status(c.passed)})")
+        i += 1
+    return "\n".join(lines)
+
+
 def build_report() -> tuple[str, bool]:
     fred_key = os.environ.get("FRED_API_KEY", "").strip()
 
@@ -504,7 +528,7 @@ def build_report() -> tuple[str, bool]:
 {_lines(equity_checks)}
 
 🎯 3. BTC 核心指标 CORE ({core_pass}/{core_total})
-{_lines(core_checks)}
+{_lines_core(core_checks)}
 
 🔍 4. BTC 辅助监测指标 AUX ({aux_pass}/{aux_total})
 {_lines(aux_checks)}
