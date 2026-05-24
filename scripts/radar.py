@@ -483,7 +483,7 @@ def build_report() -> tuple[str, bool]:
     core_pass = sum(1 for c in core_checks if c.passed is True)
 
     aux_checks = [
-        _chk("RSI 周线", btc["rsi"], "{:.1f}", "30–70", lambda v: 30 <= v <= 70),
+        _chk("RSI 周线", btc["rsi"], "{:.1f}", "<30 抄底", lambda v: v < 30),
         _chk("社交情绪", fg, "{:.0f}", "≤25 恐惧", lambda v: v <= 25),
         _chk(
             "资金费率",
@@ -514,7 +514,9 @@ def build_report() -> tuple[str, bool]:
     aux_pass = sum(1 for c in aux_checks if c.passed is True)
 
     bottom_hits = core_pass + sum(
-        1 for c in aux_checks if c.passed and c.label in ("AHR999 指标", "社交情绪", "MVRV Ratio")
+        1
+        for c in aux_checks
+        if c.passed and c.label in ("AHR999 指标", "社交情绪", "MVRV Ratio", "RSI 周线")
     )
     if core_pass >= 2 or (ahr is not None and ahr < 0.45):
         btc_verdict = "有 (考虑定投)"
